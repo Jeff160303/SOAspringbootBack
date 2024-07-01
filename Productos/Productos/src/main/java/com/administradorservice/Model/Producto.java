@@ -4,17 +4,14 @@ import jakarta.validation.constraints.NotEmpty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class Producto {
 
-    private DetalleProducto detalleProducto;
-
     @NotEmpty
-    private int idproducto;
+    private int idProducto;
 
     @NotEmpty
     private String nombreProducto;
@@ -25,8 +22,15 @@ public class Producto {
     @NotEmpty
     private Double precioProducto;
 
-    private String detalleproducto;
+    @NotEmpty
+    private int tallaS;
 
-    private List<DetalleProducto> detalles;
+    @NotEmpty
+    private int tallaM;
+
+    @NotEmpty
+    private int tallaL;
+
+    private String imagenProducto;
 
 }

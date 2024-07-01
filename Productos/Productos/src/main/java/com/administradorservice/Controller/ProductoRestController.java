@@ -1,22 +1,14 @@
 package com.administradorservice.Controller;
 
-import com.administradorservice.Model.DetalleProducto;
 import com.administradorservice.Model.Producto;
 import com.administradorservice.Services.IServiceProducto;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,64 +20,38 @@ public class ProductoRestController {
     @Autowired
     private IServiceProducto serviceProducto;
 
-    @GetMapping("/listar") //lista los productos en la pagina que vera el cliente (mustra el nombre y precio del producto.)
-    public List<Producto> Listar() {
-        return serviceProducto.Listar();
-    }
-
-    @GetMapping("/listarproducto") //lista solo la tabla producto, necesario para mostrar los prodcutos cuando se tiene que modificar o eliminar.
+    @GetMapping("/listarproducto")
     public List<Producto> ListarProducto() {
         return serviceProducto.ListarProducto();
     }
 
-    @GetMapping("/listardetalleproducto") //lista solo la tabla detalleProducto - NO SE USA DE MOMENTO
-    public List<DetalleProducto> ListarDetallesProducto() {
-        return serviceProducto.ListarDetallesProducto();
-    }
-
-    @GetMapping("/listarDetalleProductoPorIdProducto/{id}")
-    public List<DetalleProducto> listarDetalleProductoPorIdProducto(@PathVariable int id) {
-        Producto producto = serviceProducto.listarDetalleProductoPorIdProducto(id);
+    @GetMapping("/listarProductoPorId/{id}")
+    public ResponseEntity<Producto> listarProductoPorId(@PathVariable int id) {
+        Producto producto = serviceProducto.ListarProductoPorId(id);
         if (producto != null) {
-            return producto.getDetalles();
+            return ResponseEntity.ok(producto);
         } else {
-            return Collections.emptyList(); // Retorna una lista vacía si el producto no se encuentra
+            return ResponseEntity.notFound().build();
         }
     }
 
-    @GetMapping("/listarProductoPorId/{id}") //lista la tabla prodcuto con un el idProducto
-    public Producto ListarProductoPorId(@PathVariable int id) {
-        return serviceProducto.ListarProductoPorId(id);
-    }
-
-    @GetMapping("/listarDetalleProductoPorId/{id}") //lista la tabla detalle producto con el idDetalleProducto
-    public DetalleProducto ListarDetalleProductoPorId(@PathVariable int id) {
-        return serviceProducto.ListarDetalleProductoPorId(id);
-    }
-
-    @PostMapping("/crear") //Se usa para crear el producto con su detalle.
+    @PostMapping("/crear")
     @ResponseStatus(HttpStatus.CREATED)
-    public int crear(@RequestBody Producto producto) {
-        System.out.println("Producto recibido: " + producto);
-        return serviceProducto.Crear(producto);
-    }
-
-    @PostMapping("/upload") //Se usa para subir la imagen al servidor.
-    public ResponseEntity<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file) {
-        String fileName = StringUtils.cleanPath(file.getOriginalFilename());
-        Path path = Paths.get("C:/Users/jeffe/Desktop/pruebas/Productos/Productos/src/main/resources/static/imagenes/" + fileName);
+    public int crear(@RequestParam("producto") String productoJson,
+                     @RequestParam("file") MultipartFile file) {
         try {
-            Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
+            // Convertir el JSON del producto a un objeto Producto
+            ObjectMapper objectMapper = new ObjectMapper();
+            Producto producto = objectMapper.readValue(productoJson, Producto.class);
+            System.out.println("Producto recibido: " + producto);
+            return serviceProducto.Crear(producto, file);
+        } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Collections.singletonMap("message", "Failed to upload file"));
+            return -1;
         }
-        Map<String, String> response = new HashMap<>();
-        response.put("imageName", fileName);
-        return ResponseEntity.ok(response);
     }
 
-    @PutMapping("/actualizarProducto/{id}") //Se usa para actualizar solo el producto a traves de su id
+    @PutMapping("/actualizarProducto/{id}")
     @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<?> actualizarProducto(@RequestBody Producto producto, @PathVariable int id) {
         Producto productoExistente = serviceProducto.ListarProductoPorId(id);
@@ -96,6 +62,9 @@ public class ProductoRestController {
         productoExistente.setNombreProducto(producto.getNombreProducto());
         productoExistente.setCatProducto(producto.getCatProducto());
         productoExistente.setPrecioProducto(producto.getPrecioProducto());
+        productoExistente.setTallaS(producto.getTallaS());
+        productoExistente.setTallaM(producto.getTallaM());
+        productoExistente.setTallaL(producto.getTallaL());
 
         int resultado = serviceProducto.ActualizarProducto(productoExistente);
         if (resultado > 0) {
@@ -105,26 +74,8 @@ public class ProductoRestController {
         }
     }
 
-    @PutMapping("/actualizarDetalles/{idProducto}") //se usa para actualizar el detalle a traves del id del producto.
-    @ResponseStatus(HttpStatus.OK)
-    public ResponseEntity<?> actualizarDetallesProducto(@RequestBody List<DetalleProducto> detalles, @PathVariable int idProducto) {
-        int resultado = serviceProducto.ActualizarDetallesProducto(idProducto, detalles);
-        if (resultado > 0) {
-            return new ResponseEntity<>(Map.of("message", "Detalles actualizados con éxito"), HttpStatus.OK);
-        } else {
-            return new ResponseEntity<>(Map.of("error", "Error al actualizar los detalles"), HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
 
-
-
-
-
-
-
-
-
-    @DeleteMapping("/eliminarProductoyDetalle/{id}")
+    @DeleteMapping("/eliminarProducto/{id}")
     public ResponseEntity<?> eliminar(@PathVariable int id) {
         int resultado = serviceProducto.Eliminar(id);
         if (resultado > 0) {
