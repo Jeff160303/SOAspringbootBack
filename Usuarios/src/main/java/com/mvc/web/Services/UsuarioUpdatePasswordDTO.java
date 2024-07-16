@@ -10,10 +10,19 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UsuarioUpdatePasswordDTO {
+
+    @NotEmpty
+    private String dni;
+
     @NotEmpty
     @Email
     private String correo;
 
     @NotEmpty
-    private String contrasena;
+    private String contrasenaActual;
+
+    @NotEmpty
+    private String nuevaContrasena;
+
+    // Getters y Setters generados por Lombok
 }

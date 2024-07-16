@@ -48,13 +48,43 @@ public class IRepositoryProductoImpl implements IRepositoryProducto{
         return productos;
     }
 
-
-
     private String uploadFile(MultipartFile file) throws IOException {
-        String fileName = StringUtils.cleanPath(file.getOriginalFilename());
+        String fileName;
+        boolean nameAvailable;
+
+        do {
+            fileName = generateRandomFileName() + getFileExtension(file.getOriginalFilename());
+
+            nameAvailable = isFileNameAvailable(fileName);
+        } while (!nameAvailable);
+
         Path path = Paths.get("C:/Users/jeffe/Desktop/Spring Boot/Productos/Productos/src/main/resources/static/imagenes/" + fileName);
         Files.copy(file.getInputStream(), path, StandardCopyOption.REPLACE_EXISTING);
         return fileName;
+    }
+
+    private String generateRandomFileName() {
+        return String.valueOf((int)(Math.random() * 90000000) + 10000000);
+    }
+
+    private String getFileExtension(String fileName) {
+        return fileName.substring(fileName.lastIndexOf("."));
+    }
+
+    private boolean isFileNameAvailable(String fileName) {
+        String SQLCheck = "SELECT COUNT(*) FROM Producto WHERE imgProducto = ?";
+        try (Connection con = conexionBD.getConexion();
+             PreparedStatement pstmtCheck = con.prepareStatement(SQLCheck)) {
+            pstmtCheck.setString(1, fileName);
+            try (ResultSet rs = pstmtCheck.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) == 0;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     @Override
@@ -67,10 +97,8 @@ public class IRepositoryProductoImpl implements IRepositoryProducto{
             String fileName = uploadFile(file);
             producto.setImagenProducto(fileName);
 
-            try (
-                    Connection con = conexionBD.getConexion();
-                    PreparedStatement pstmtProducto = con.prepareStatement(SQLProducto, Statement.RETURN_GENERATED_KEYS);
-            ) {
+            try (Connection con = conexionBD.getConexion();
+                 PreparedStatement pstmtProducto = con.prepareStatement(SQLProducto, Statement.RETURN_GENERATED_KEYS)) {
                 pstmtProducto.setString(1, producto.getNombreProducto());
                 pstmtProducto.setString(2, producto.getCatProducto());
                 pstmtProducto.setDouble(3, producto.getPrecioProducto());
@@ -96,8 +124,6 @@ public class IRepositoryProductoImpl implements IRepositoryProducto{
 
         return resultadoProducto;
     }
-
-
 
     @Override
     public Producto ListarProductoPorId(int id) {
@@ -156,34 +182,58 @@ public class IRepositoryProductoImpl implements IRepositoryProducto{
         return resultado;
     }
 
+    public static void actualizarCantidad(int idProducto, String talla, int cantidad) {
+        String columnaTalla = "talla" + talla.toUpperCase();
+        String sql = "UPDATE Producto SET " + columnaTalla + " = " + columnaTalla + " - ? WHERE idProducto = ?";
+        try (Connection con = conexionBD.getConexion();
+             PreparedStatement pstmt = con.prepareStatement(sql)) {
+            pstmt.setInt(1, cantidad);
+            pstmt.setInt(2, idProducto);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 
 
     @Override
     public int Eliminar(int id) {
+        String SQL_GET_IMAGE_NAME = "SELECT imgProducto FROM Producto WHERE idproducto = ?";
         String SQL_DELETE_PRODUCT = "DELETE FROM Producto WHERE idproducto = ?";
         int resultado = -1;
         Connection con = null;
 
         try {
             con = conexionBD.getConexion();
-            PreparedStatement pstmtDeleteProduct = con.prepareStatement(SQL_DELETE_PRODUCT);
-            con.setAutoCommit(false);
 
-            pstmtDeleteProduct.setInt(1, id);
-            resultado = pstmtDeleteProduct.executeUpdate();
+            String imageName = null;
+            try (PreparedStatement pstmtGetImageName = con.prepareStatement(SQL_GET_IMAGE_NAME)) {
+                pstmtGetImageName.setInt(1, id);
+                try (ResultSet rs = pstmtGetImageName.executeQuery()) {
+                    if (rs.next()) {
+                        imageName = rs.getString("imgProducto");
+                    }
+                }
+            }
 
-            con.commit();
+            try (PreparedStatement pstmtDeleteProduct = con.prepareStatement(SQL_DELETE_PRODUCT)) {
+                pstmtDeleteProduct.setInt(1, id);
+                resultado = pstmtDeleteProduct.executeUpdate();
+            }
+
+            if (resultado > 0 && imageName != null) {
+                Path imagePath = Paths.get("C:/Users/jeffe/Desktop/Spring Boot/Productos/Productos/src/main/resources/static/imagenes/" + imageName);
+                try {
+                    Files.deleteIfExists(imagePath);
+                } catch (IOException e) {
+                    System.err.println("Error al eliminar la imagen: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
             resultado = -1;
-            if (con != null) {
-                try {
-                    con.rollback();
-                } catch (SQLException rollbackException) {
-                    rollbackException.printStackTrace();
-                }
-            }
         } finally {
             if (con != null) {
                 try {
@@ -196,7 +246,5 @@ public class IRepositoryProductoImpl implements IRepositoryProducto{
 
         return resultado;
     }
-
-
 
 }

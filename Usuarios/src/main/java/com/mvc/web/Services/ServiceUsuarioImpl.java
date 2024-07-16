@@ -1,8 +1,7 @@
 package com.mvc.web.Services;
 
 import com.mvc.web.Model.Usuario;
-import com.mvc.web.Services.UsuarioDTO;
-import com.mvc.web.Services.UsuarioCreateDTO;
+import com.mvc.web.Model.UsuarioDetalle;
 import com.mvc.web.Repository.IRepositoryUsuario;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -46,11 +45,26 @@ public class ServiceUsuarioImpl implements IServiceUsuario {
     }
 
     @Override
-    public int Modificar(UsuarioUpdatePasswordDTO usuarioUpdatePasswordDTO) {
+    public int Modificar(String dni, String contrasenaActual, String nuevaContrasena) {
         Usuario usuario = new Usuario();
-        usuario.setCorreo(usuarioUpdatePasswordDTO.getCorreo());
-        usuario.setContrasena(usuarioUpdatePasswordDTO.getContrasena());
-        return repositoryUsuario.Modificar(usuario);
+        usuario.setDni(dni);
+        usuario.setContrasena(contrasenaActual);
+        return repositoryUsuario.Modificar(dni, contrasenaActual, nuevaContrasena);
+    }
+
+    @Override
+    public int actualizarContrasena(String correo, String dni, String nuevaContrasena) {
+        Usuario usuario = repositoryUsuario.findByCorreo(correo);
+        if (usuario != null && usuario.getDni().equals(dni)) {
+            int resultado = repositoryUsuario.actualizarContrasena(correo, dni, nuevaContrasena);
+            if (resultado == 1) {
+                return 1; // Indica éxito
+            } else {
+                return 0; // Indica fallo
+            }
+        } else {
+            return -1; // Indica usuario no encontrado o datos incorrectos
+        }
     }
 
 
@@ -69,6 +83,36 @@ public class ServiceUsuarioImpl implements IServiceUsuario {
         }
     }
 
+    @Override
+    public int agregarDireccionYCodigoPostal(DetalleUsuarioCreateDTO detalleUsuarioCreateDTO) {
+        return repositoryUsuario.agregarDireccionYCodigoPostal(
+                detalleUsuarioCreateDTO.getDni(),
+                detalleUsuarioCreateDTO.getDireccion(),
+                detalleUsuarioCreateDTO.getCodigoPostal()
+        );
+    }
+
+    @Override
+    public int actualizarDireccionYCodigoPostal(DetalleUsuarioUpdateDTO detalleUsuarioUpdateDTO) {
+        return repositoryUsuario.actualizarDireccionYCodigoPostal(
+                detalleUsuarioUpdateDTO.getIdDetalleUsuarios(),
+                detalleUsuarioUpdateDTO.getDireccion(),
+                detalleUsuarioUpdateDTO.getCodigoPostal()
+        );
+    }
+
+    @Override
+    public List<DetalleUsuarioDTO> ListarDetallesPorDni(String dni) {
+        return repositoryUsuario.listarDetallePorDni(dni).stream()
+                .map(this::convertToDetalleDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public int eliminarDetalle(int idDetalleUsuarios) {
+        return repositoryUsuario.eliminarDetalle(idDetalleUsuarios);
+    }
+
     private UsuarioDTO convertToDTO(Usuario usuario) {
         UsuarioDTO usuarioDTO = new UsuarioDTO();
         usuarioDTO.setDni(usuario.getDni());
@@ -78,5 +122,14 @@ public class ServiceUsuarioImpl implements IServiceUsuario {
         usuarioDTO.setCorreo(usuario.getCorreo());
         usuarioDTO.setRol(usuario.getRol());
         return usuarioDTO;
+    }
+
+    private DetalleUsuarioDTO convertToDetalleDTO(UsuarioDetalle detalleUsuario) {
+        DetalleUsuarioDTO detalleDTO = new DetalleUsuarioDTO();
+        detalleDTO.setIdDetalleUsuarios(detalleUsuario.getIdDetalleUsuarios());
+        detalleDTO.setDni(detalleUsuario.getDni());
+        detalleDTO.setDireccion(detalleUsuario.getDireccion());
+        detalleDTO.setCodigoPostal(detalleUsuario.getCodigoPostal());
+        return detalleDTO;
     }
 }

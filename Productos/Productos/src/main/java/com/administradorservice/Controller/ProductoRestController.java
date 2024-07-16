@@ -1,6 +1,8 @@
 package com.administradorservice.Controller;
 
 import com.administradorservice.Model.Producto;
+import com.administradorservice.Model.ProductoActualizacion;
+import com.administradorservice.Repository.IRepositoryProductoImpl;
 import com.administradorservice.Services.IServiceProducto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,7 +43,6 @@ public class ProductoRestController {
     public int crear(@RequestParam("producto") String productoJson,
                      @RequestParam("file") MultipartFile file) {
         try {
-            // Convertir el JSON del producto a un objeto Producto
             ObjectMapper objectMapper = new ObjectMapper();
             Producto producto = objectMapper.readValue(productoJson, Producto.class);
             System.out.println("Producto recibido: " + producto);
@@ -73,6 +75,23 @@ public class ProductoRestController {
             return new ResponseEntity<>(Map.of("error", "Error al actualizar el producto"), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @PutMapping("/actualizarCantidades")
+    public ResponseEntity<?> actualizarCantidades(@RequestBody List<ProductoActualizacion> actualizaciones) {
+        try {
+            for (ProductoActualizacion actualizacion : actualizaciones) {
+                IRepositoryProductoImpl.actualizarCantidad(actualizacion.getIdProducto(), actualizacion.getTalla(), actualizacion.getCantidad());
+            }
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Cantidades actualizadas exitosamente");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Error al actualizar cantidades");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
 
 
     @DeleteMapping("/eliminarProducto/{id}")
